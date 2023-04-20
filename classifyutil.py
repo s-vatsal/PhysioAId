@@ -2,6 +2,7 @@ import math
 import cv2
 from mpinit import mp_pose
 import matplotlib.pyplot as plt
+import time
 
 def calculateAngle(landmark1, landmark2, landmark3):
     '''
@@ -161,3 +162,99 @@ def classifyPose(landmarks, output_image, display=False):
         
         # Return the output image and the classified label.
         return output_image, label
+    
+
+def classifyStageSim(landmarks, output_image, stage, display=False):
+    complete = False
+    
+    # Initialize the label of the pose. It is not known at this stage.
+    label = 'Incorrect Pose'
+
+    # Specify the color (Red) with which the label will be written on the image.
+    color = (0, 0, 255)
+    
+    # Calculate the required angles.
+    #----------------------------------------------------------------------------------------------------------------
+    
+    # Get the angle between the left shoulder, elbow and wrist points. 
+    left_elbow_angle = calculateAngle(landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value],
+                                      landmarks[mp_pose.PoseLandmark.LEFT_ELBOW.value],
+                                      landmarks[mp_pose.PoseLandmark.LEFT_WRIST.value])
+    
+    # Get the angle between the right shoulder, elbow and wrist points. 
+    right_elbow_angle = calculateAngle(landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER.value],
+                                       landmarks[mp_pose.PoseLandmark.RIGHT_ELBOW.value],
+                                       landmarks[mp_pose.PoseLandmark.RIGHT_WRIST.value])   
+    
+    # Get the angle between the left elbow, shoulder and hip points. 
+    left_shoulder_angle = calculateAngle(landmarks[mp_pose.PoseLandmark.LEFT_ELBOW.value],
+                                         landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value],
+                                         landmarks[mp_pose.PoseLandmark.LEFT_HIP.value])
+
+    # Get the angle between the right hip, shoulder and elbow points. 
+    right_shoulder_angle = calculateAngle(landmarks[mp_pose.PoseLandmark.RIGHT_HIP.value],
+                                          landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER.value],
+                                          landmarks[mp_pose.PoseLandmark.RIGHT_ELBOW.value])
+
+    # Get the angle between the left hip, knee and ankle points. 
+    left_knee_angle = calculateAngle(landmarks[mp_pose.PoseLandmark.LEFT_HIP.value],
+                                     landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value],
+                                     landmarks[mp_pose.PoseLandmark.LEFT_ANKLE.value])
+
+    # Get the angle between the right hip, knee and ankle points 
+    right_knee_angle = calculateAngle(landmarks[mp_pose.PoseLandmark.RIGHT_HIP.value],
+                                      landmarks[mp_pose.PoseLandmark.RIGHT_KNEE.value],
+                                      landmarks[mp_pose.PoseLandmark.RIGHT_ANKLE.value])
+    
+    x1, y1, t1 = landmarks[mp_pose.PoseLandmark.RIGHT_HIP.value]
+    x2, y2, t2 = landmarks[mp_pose.PoseLandmark.LEFT_HIP.value]
+    mpx = (x1 + x2)/2 
+    mpy = (y1 + y2)/2
+    mpval = mpx, mpy, t1
+
+    btwn_leg_angle = calculateAngle(landmarks[mp_pose.PoseLandmark.RIGHT_ANKLE.value],
+                               mpval,
+                               landmarks[mp_pose.PoseLandmark.LEFT_ANKLE.value])
+    
+    
+    if stage > 0 and stage <= 2:
+        # Check if the both legs are straight.
+        if left_knee_angle > 165 and left_knee_angle < 195 and right_knee_angle > 165 and right_knee_angle < 195:
+        
+            # Check if shoulders are at the required angle.
+            if btwn_leg_angle > 45 and btwn_leg_angle < 70:
+                    # Specify the label of the pose that is tree pose.
+                    label = 'Side Kicks: Right Leg'
+
+    if stage > 2 and stage <= 4:    
+        # Check if the both legs are straight.
+        if right_knee_angle > 165 and right_knee_angle < 195 and left_knee_angle > 165 and left_knee_angle < 195:
+    
+            # Check if shoulders are at the required angle.
+            if btwn_leg_angle > 45 and btwn_leg_angle < 70:
+                    # Specify the label of the pose that is tree pose.
+                    label = 'Side Kicks: Left Leg'
+
+    # Check if the pose is classified successfully
+    if label != 'Incorrect Pose':
+        
+        # Update the color (to green) with which the label will be written on the image.
+        color = (0, 255, 0)
+        complete = True
+        stage = 'Stage {0} Complete!'.format(str(stage))
+        cv2.putText(output_image, stage, (10, 60),cv2.FONT_HERSHEY_PLAIN, 2, color, 2)
+    
+    # Write the label on the output image. 
+    cv2.putText(output_image, label, (10, 30),cv2.FONT_HERSHEY_PLAIN, 2, color, 2)
+    
+    # Check if the resultant image is specified to be displayed.
+    if display:
+    
+        # Display the resultant image.
+        plt.figure(figsize=[10,10])
+        plt.imshow(output_image[:,:,::-1]);plt.title("Output Image");plt.axis('off')
+        
+    else:
+        
+        # Return the output image and the classified label.
+        return output_image, label, complete
